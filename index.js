@@ -32,7 +32,7 @@ app.post('/process-image', (req, res) => {
 // --- 真正的 AI 处理函数 ---
 async function processImageGeneration(taskId, prompt) {
   // 日志2：打印出将要使用的环境变量和参数（密钥做掩码处理）
-  const apiKey = process.env.YUNWU_API_KEY;
+  const apiKey = process.env.LAOZHANG_API_KEY;
   const apiKeyForDisplay = apiKey ? `sk-.......${apiKey.slice(-4)}` : "未定义(undefined)";
   
   console.log(`--- [${taskId}] DEBUG INFO ---`);
