@@ -63,6 +63,8 @@ async function processImageGeneration(taskId, prompt) {
 
     const content = response.data.choices[0].message.content;
     
+    console.log(`[${taskId}] [DEBUG] Full AI response content:`, content);
+    
     // 日志5：准备解析返回结果
     console.log(`[${taskId}] [INFO] 🧠 Parsing response content...`);
     const match = content.match(/!\[.*?\]\((https:\/\/filesystem\.site.*?)\)/);
