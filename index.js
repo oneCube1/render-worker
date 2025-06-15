@@ -22,7 +22,7 @@ app.post('/process-image', (req, res) => {
   console.log(`\n\n--- [${taskId}] NEW TASK RECEIVED ---`);
   console.log(`[${taskId}] [INFO] 📡 Received prompt: "${prompt}"`);
 
-  // 立刻响应 Vercel，告诉它"任务我收到了！"
+  // 立刻响应 Vercel，告诉它“任务我收到了！”
   res.status(200).send({ message: 'Task accepted and is being processed.' });
 
   // 在后台异步执行真正的耗时任务
@@ -32,7 +32,7 @@ app.post('/process-image', (req, res) => {
 // --- 真正的 AI 处理函数 ---
 async function processImageGeneration(taskId, prompt) {
   // 日志2：打印出将要使用的环境变量和参数（密钥做掩码处理）
-  const apiKey = process.env.LAOZHANG_API_KEY;
+  const apiKey = process.env.YUNWU_API_KEY;
   const apiKeyForDisplay = apiKey ? `sk-.......${apiKey.slice(-4)}` : "未定义(undefined)";
   
   console.log(`--- [${taskId}] DEBUG INFO ---`);
@@ -42,29 +42,24 @@ async function processImageGeneration(taskId, prompt) {
 
   try {
     // 日志3：准备调用外部 API
-    console.log(`[${taskId}] [INFO] ➡️ Calling laozhang.ai API...`);
+    console.log(`[${taskId}] [INFO] ➡️ Calling yunwu.ai API...`);
     
     const response = await axios.post(
-      'https://api.laozhang.ai/v1/chat/completions',
+      'https://yunwu.ai/v1/chat/completions',
       {
         model: 'gpt-4o-image-vip',
-        stream: false,
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
       },
       {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         timeout: 300000 
       }
     );
 
     // 日志4：外部 API 调用成功
-    console.log(`[${taskId}] [SUCCESS] ✅ laozhang.ai API responded with status: ${response.status}`);
+    console.log(`[${taskId}] [SUCCESS] ✅ yunwu.ai API responded with status: ${response.status}`);
 
     const content = response.data.choices[0].message.content;
     
