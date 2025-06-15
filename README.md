@@ -6,7 +6,7 @@
 
 ### 1. 准备代码
 将 `render-worker` 文件夹上传到 GitHub 仓库。
-
+ 
 ### 2. 在 Render 创建服务
 1. 访问 [render.com](https://render.com) 并登录
 2. 点击 "New +" → "Web Service"
