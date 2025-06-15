@@ -1,12 +1,18 @@
 // 引入必要的库
 const express = require('express');
-const bodyParser = require('body-parser');
 const axios = require('axios');
 require('dotenv').config(); // 加载环境变量
 
 // 创建 Express 应用
 const app = express();
-app.use(bodyParser.json());
+
+// --- vvvvvv 在这里进行修改 vvvvvv ---
+// 增加 JSON 和 URL-encoded 请求体的大小限制，比如增加到 50mb
+// 这是解决 "PayloadTooLargeError" 的关键
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// --- ^^^^^^ 修改结束 ^^^^^^ ---
+
 
 // --- 工人的主入口 ---
 app.post('/process-image', (req, res) => {
@@ -14,7 +20,7 @@ app.post('/process-image', (req, res) => {
 
   // 日志1：确认收到 Vercel 的请求
   console.log(`\n\n--- [${taskId}] NEW TASK RECEIVED ---`);
-  console.log(`[${taskId}] [INFO] 📡 Vercel a envoyé une demande avec le prompt: "${prompt}"`);
+  console.log(`[${taskId}] [INFO] 📡 Received prompt: "${prompt}"`);
 
   // 立刻响应 Vercel，告诉它“任务我收到了！”
   res.status(200).send({ message: 'Task accepted and is being processed.' });
@@ -76,16 +82,13 @@ async function processImageGeneration(taskId, prompt) {
     console.error(`[${taskId}] [ERROR] ❌ An error occurred during processing!`);
     
     if (error.response) {
-      // 服务器返回了错误状态码 (比如 404, 401, 500)
       console.error(`[${taskId}] [ERROR] AI Service responded with status: ${error.response.status}`);
       console.error(`[${taskId}] [ERROR] AI Service responded with data:`, error.response.data);
       await notifyVercel(taskId, 'failed', { error: `AI service responded with status ${error.response.status}` });
     } else if (error.request) {
-      // 请求已发出，但没有收到响应 (比如超时)
       console.error(`[${taskId}] [ERROR] No response received from AI service:`, error.request);
       await notifyVercel(taskId, 'failed', { error: 'No response from AI service.' });
     } else {
-      // 在设置请求时就出错了
       console.error(`[${taskId}] [ERROR] Error message:`, error.message);
       await notifyVercel(taskId, 'failed', { error: error.message });
     }
