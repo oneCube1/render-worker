@@ -12,28 +12,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // --- ^^^^^^ 修改结束 ^^^^^^ ---
 
-// 图片链接转换函数
-function convertImageUrl(originalUrl) {
-  try {
-    // 从R2链接中提取文件名
-    // 例如: https://jubili.8a668a21c563ade0c297bd2404377b9a.r2.cloudflarestorage.com/1750039195939-7rB5Yl9_f2.jpg
-    // 提取: 1750039195939-7rB5Yl9_f2
-    
-    const url = new URL(originalUrl);
-    const pathname = url.pathname; // /1750039195939-7rB5Yl9_f2.jpg
-    const filename = pathname.substring(1); // 去掉开头的 /
-    const filenameWithoutExt = filename.replace(/\.(jpg|jpeg|png|gif|webp)$/i, ''); // 去掉扩展名
-    
-    // 构建新的图片服务链接
-    const convertedUrl = `https://tupian.image123.pro/${filenameWithoutExt}.jpg`;
-    
-    return convertedUrl;
-  } catch (error) {
-    console.error('Error converting image URL:', error);
-    return originalUrl; // 如果转换失败，返回原始URL
-  }
-}
-
 // --- 工人的主入口 ---
 app.post('/process-image', (req, res) => {
   const { taskId, prompt, imageUrl } = req.body;
@@ -44,7 +22,7 @@ app.post('/process-image', (req, res) => {
   
   // 记录接收到的图片链接
   if (imageUrl) {
-    console.log(`[${taskId}] [INFO] 🖼️ Received original image URL: ${imageUrl}`);
+    console.log(`[${taskId}] [INFO] 🖼️ Received image URL: ${imageUrl}`);
   }
 
   // 立刻响应 Vercel，告诉它"任务我收到了！"
@@ -69,21 +47,13 @@ async function processImageGeneration(taskId, prompt, imageUrl = null) {
   try {
     // 构建消息内容
     let messageContent;
-    let finalImageUrl = null;
     
     if (imageUrl) {
-      // 🔥 关键：转换图片链接
-      finalImageUrl = convertImageUrl(imageUrl);
-      
-      console.log(`[${taskId}] [CONVERT] 🔄 Image URL conversion:`);
-      console.log(`[${taskId}] [CONVERT] Original: ${imageUrl}`);
-      console.log(`[${taskId}] [CONVERT] Converted: ${finalImageUrl}`);
-      
       // ===== 🔥 重点：打印即将发送给AI的图片链接 🔥 =====
       console.log(`\n======== [${taskId}] 🚀 SENDING TO AI 🚀 ========`);
       console.log(`[${taskId}] [SEND_TO_AI] 📤 About to send the following image URL to AI service:`);
       console.log(`[${taskId}] [SEND_TO_AI] ⬇️⬇️⬇️ IMAGE URL BEING SENT TO AI ⬇️⬇️⬇️`);
-      console.log(finalImageUrl);
+      console.log(imageUrl);
       console.log(`[${taskId}] [SEND_TO_AI] ⬆️⬆️⬆️ END OF IMAGE URL BEING SENT TO AI ⬆️⬆️⬆️`);
       console.log(`======== [${taskId}] 🚀 END SENDING TO AI 🚀 ========\n`);
       
@@ -96,7 +66,7 @@ async function processImageGeneration(taskId, prompt, imageUrl = null) {
         {
           type: "image_url",
           image_url: {
-            url: finalImageUrl
+            url: imageUrl
           }
         }
       ];
@@ -179,19 +149,12 @@ app.post('/debug-send-to-ai', (req, res) => {
   console.log(`\n\n--- [${taskId}] DEBUG: SIMULATE SENDING TO AI ---`);
   
   if (imageUrl) {
-    // 转换图片链接
-    const convertedUrl = convertImageUrl(imageUrl);
-    
-    console.log(`[${taskId}] [DEBUG] Image URL conversion:`);
-    console.log(`[${taskId}] [DEBUG] Original: ${imageUrl}`);
-    console.log(`[${taskId}] [DEBUG] Converted: ${convertedUrl}`);
-    
     // 🔥 重点：模拟发送给AI的过程，打印图片链接
     console.log(`\n======== [${taskId}] 🚀 SIMULATING SEND TO AI 🚀 ========`);
     console.log(`[${taskId}] [SIMULATION] 📤 This is what would be sent to AI service:`);
     console.log(`[${taskId}] [SIMULATION] Prompt: "${prompt}"`);
     console.log(`[${taskId}] [SIMULATION] ⬇️⬇️⬇️ IMAGE URL THAT WOULD BE SENT TO AI ⬇️⬇️⬇️`);
-    console.log(convertedUrl);
+    console.log(imageUrl);
     console.log(`[${taskId}] [SIMULATION] ⬆️⬆️⬆️ END OF IMAGE URL THAT WOULD BE SENT TO AI ⬆️⬆️⬆️`);
     console.log(`======== [${taskId}] 🚀 END SIMULATION 🚀 ========\n`);
     
@@ -199,8 +162,7 @@ app.post('/debug-send-to-ai', (req, res) => {
       success: true, 
       message: '模拟发送给AI的图片链接已打印到控制台',
       taskId,
-      originalUrl: imageUrl,
-      convertedUrl: convertedUrl,
+      imageUrl,
       prompt
     });
   } else {
@@ -210,29 +172,6 @@ app.post('/debug-send-to-ai', (req, res) => {
       message: 'No imageUrl data provided for simulation' 
     });
   }
-});
-
-// 新增：测试图片链接转换的端点
-app.post('/test-convert-url', (req, res) => {
-  const { imageUrl } = req.body;
-  
-  if (!imageUrl) {
-    return res.status(400).json({
-      success: false,
-      message: 'imageUrl is required'
-    });
-  }
-  
-  const convertedUrl = convertImageUrl(imageUrl);
-  
-  console.log(`[URL_CONVERT] Original: ${imageUrl}`);
-  console.log(`[URL_CONVERT] Converted: ${convertedUrl}`);
-  
-  res.json({
-    success: true,
-    originalUrl: imageUrl,
-    convertedUrl: convertedUrl
-  });
 });
 
 // --- 通知 Vercel 的函数 ---
@@ -276,9 +215,7 @@ app.listen(PORT, () => {
   console.log(`Worker is listening on port ${PORT}`);
   console.log(`🖼️  Main endpoint: POST http://localhost:${PORT}/process-image`);
   console.log(`🔍  Debug endpoint: POST http://localhost:${PORT}/debug-send-to-ai`);
-  console.log(`🔄  URL convert test: POST http://localhost:${PORT}/test-convert-url`);
   console.log(`\n📝 Usage examples:`);
-  console.log(`   curl -X POST http://localhost:${PORT}/process-image -H "Content-Type: application/json" -d '{"taskId":"test123","prompt":"分析图片","imageUrl":"https://jubili.8a668a21c563ade0c297bd2404377b9a.r2.cloudflarestorage.com/1750039195939-7rB5Yl9_f2.jpg"}'`);
-  console.log(`   curl -X POST http://localhost:${PORT}/debug-send-to-ai -H "Content-Type: application/json" -d '{"imageUrl":"https://jubili.8a668a21c563ade0c297bd2404377b9a.r2.cloudflarestorage.com/1750039195939-7rB5Yl9_f2.jpg"}'`);
-  console.log(`   curl -X POST http://localhost:${PORT}/test-convert-url -H "Content-Type: application/json" -d '{"imageUrl":"https://jubili.8a668a21c563ade0c297bd2404377b9a.r2.cloudflarestorage.com/1750039195939-7rB5Yl9_f2.jpg"}'`);
+  console.log(`   curl -X POST http://localhost:${PORT}/process-image -H "Content-Type: application/json" -d '{"taskId":"test123","prompt":"分析图片","imageUrl":"https://example.com/image.jpg"}'`);
+  console.log(`   curl -X POST http://localhost:${PORT}/debug-send-to-ai -H "Content-Type: application/json" -d '{"imageUrl":"https://example.com/image.jpg"}'`);
 });
