@@ -107,12 +107,12 @@ async function processImageGeneration(taskId, prompt, imageUrl = null) {
     if (!match || !match[1]) {
         throw new Error('Could not parse image URL from AI response. No match found.');
     }
-    const imageUrl = match[1];
+    const resultImageUrl = match[1];  // 重命名变量避免与参数冲突
     console.log(`[${taskId}] [SUCCESS] ✅ Image URL parsed successfully.`);
 
     // 日志6：准备回调 Vercel Webhook
     console.log(`[${taskId}] [INFO] ↪️ Notifying Vercel with 'completed' status...`);
-    await notifyVercel(taskId, 'completed', { resultUrl: imageUrl });
+    await notifyVercel(taskId, 'completed', { resultUrl: resultImageUrl });
 
   } catch (error) {
     // 日志7：捕获到任何环节的错误
