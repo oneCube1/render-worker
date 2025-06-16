@@ -1,6 +1,5 @@
 // 引入必要的库
 const express = require('express');
-const axios = require('axios');
 require('dotenv').config(); // 加载环境变量
 
 // 创建 Express 应用
@@ -76,27 +75,45 @@ async function processImageGeneration(taskId, prompt, imageUrl = null) {
       messageContent = prompt;
     }
 
+    // 准备要发送给 AI 的数据包 (Payload)
+    const aiPayload = {
+      model: "gpt-4o-image-vip",
+      messages: [
+        {
+          role: "user",
+          content: messageContent
+        }
+      ]
+    };
+
+    console.log(`[${taskId}] [AI CALL] 最终确认的请求数据:`);
+    console.log(JSON.stringify(aiPayload, null, 2));
+
     // 日志3：准备调用外部 API
     console.log(`[${taskId}] [INFO] ➡️ Calling yunwu.ai API...`);
     
-    const response = await axios.post(
-      'https://yunwu.ai/v1/chat/completions',
-      {
-        model: 'gpt-4o-image-vip',
-        messages: [{ role: 'user', content: messageContent }],
+    const response = await fetch("https://yunwu.ai/v1/chat/completions", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-        timeout: 300000 
-      }
-    );
+      body: JSON.stringify(aiPayload)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[${taskId}] [ERROR] AI 服务返回了错误，状态码: ${response.status}:`, errorBody);
+      throw new Error(`AI service responded with status ${response.status}`);
+    }
 
     // 日志4：外部 API 调用成功
     console.log(`[${taskId}] [SUCCESS] ✅ yunwu.ai API responded with status: ${response.status}`);
 
-    const content = response.data.choices[0].message.content;
+    const aiResult = await response.json();
+    console.log(`[${taskId}] [AI CALL] 成功收到 AI 返回的结果。`);
+    
+    const content = aiResult.choices[0].message.content;
     
     console.log(`[${taskId}] [DEBUG] Full AI response content:`, content);
     
@@ -117,18 +134,10 @@ async function processImageGeneration(taskId, prompt, imageUrl = null) {
   } catch (error) {
     // 日志7：捕获到任何环节的错误
     console.error(`[${taskId}] [ERROR] ❌ An error occurred during processing!`);
+    console.error(`[${taskId}] [ERROR] Error message:`, error.message);
+    console.error(`[${taskId}] [ERROR] Error details:`, error);
     
-    if (error.response) {
-      console.error(`[${taskId}] [ERROR] AI Service responded with status: ${error.response.status}`);
-      console.error(`[${taskId}] [ERROR] AI Service responded with data:`, error.response.data);
-      await notifyVercel(taskId, 'failed', { error: `AI service responded with status ${error.response.status}` });
-    } else if (error.request) {
-      console.error(`[${taskId}] [ERROR] No response received from AI service:`, error.request);
-      await notifyVercel(taskId, 'failed', { error: 'No response from AI service.' });
-    } else {
-      console.error(`[${taskId}] [ERROR] Error message:`, error.message);
-      await notifyVercel(taskId, 'failed', { error: error.message });
-    }
+    await notifyVercel(taskId, 'failed', { error: error.message });
   }
 }
 
@@ -176,16 +185,25 @@ async function notifyVercel(taskId, status, data) {
     }
 
     try {
-        await axios.post(webhookUrl, {
-            taskId,
-            status,
-            ...data
-        }, {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'x-worker-secret': secret
-            }
+            },
+            body: JSON.stringify({
+                taskId,
+                status,
+                ...data
+            })
         });
-        console.log(`[${taskId}] [SUCCESS] ✅ Successfully notified Vercel with status: ${status}`);
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`[${taskId}] [ERROR] ❌ Failed to notify Vercel. Status: ${response.status}, Body:`, errorBody);
+        } else {
+            console.log(`[${taskId}] [SUCCESS] ✅ Successfully notified Vercel with status: ${status}`);
+        }
     } catch (error) {
         console.error(`[${taskId}] [ERROR] ❌ Failed to notify Vercel:`, error.message);
     }
